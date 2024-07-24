@@ -56,6 +56,14 @@ class Motor:
         self.cmd_kp = cmd_kp
         self.cmd_kd = cmd_kd
 
+    def getPosition(self):
+        return self.state_q
+
+    def getVelocity(self):
+        return self.state_dq
+
+    def getTorque(self):
+        return self.state_tau
 
 # -------------------------------------------------
 # Extract packets from the serial data
@@ -109,16 +117,16 @@ class MotorControl:
             print("Motor ID not found")
             return
         DM_Motor.save_cmd(kp, kd, q, dq, tau)
-        kp_uint = float_to_uint(kp, 0, 500, np.uint8(12))
-        kd_uint = float_to_uint(kd, 0, 5, np.uint8(12))
+        kp_uint = float_to_uint(kp, 0, 500, 12)
+        kd_uint = float_to_uint(kd, 0, 5, 12)
         # print(type(DM_Motor.MotorType))
         MotorType = DM_Motor.MotorType
         q_uint = float_to_uint(q, -Motor_Param_limits[MotorType].Q_MAX, Motor_Param_limits[MotorType].Q_MAX,
-                               np.uint8(16))
+                               16)
         dq_uint = float_to_uint(dq, -Motor_Param_limits[MotorType].DQ_MAX, Motor_Param_limits[MotorType].DQ_MAX,
-                                np.uint8(12))
+                               12)
         tau_uint = float_to_uint(tau, -Motor_Param_limits[MotorType].TAU_MAX, Motor_Param_limits[MotorType].TAU_MAX,
-                                 np.uint8(12))
+                                 12)
         data_buf = np.array([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], np.uint8)
         data_buf[0] = (q_uint >> 8) & 0xff
         data_buf[1] = q_uint & 0xff
@@ -168,11 +176,11 @@ class MotorControl:
                 tau_uint = np.uint16(((data[4] & 0xf) << 8) | data[5])
                 MotorType_recv = self.motors_map[CANID].MotorType
                 recv_q = uint_to_float(q_uint, -Motor_Param_limits[MotorType_recv].Q_MAX,
-                                       Motor_Param_limits[MotorType_recv].Q_MAX, np.uint8(16))
+                                       Motor_Param_limits[MotorType_recv].Q_MAX, 16)
                 recv_dq = uint_to_float(dq_uint, -Motor_Param_limits[MotorType_recv].DQ_MAX,
-                                        Motor_Param_limits[MotorType_recv].DQ_MAX, np.uint8(12))
+                                        Motor_Param_limits[MotorType_recv].DQ_MAX, 12)
                 recv_tau = uint_to_float(tau_uint, -Motor_Param_limits[MotorType_recv].TAU_MAX,
-                                         Motor_Param_limits[MotorType_recv].TAU_MAX, np.uint8(12))
+                                         Motor_Param_limits[MotorType_recv].TAU_MAX, 12)
                 self.motors_map[CANID].recv_data(recv_q, recv_dq, recv_tau)
 
     # add motor to the motor control 添加电机
@@ -188,14 +196,22 @@ class MotorControl:
         self.serial_.write(bytes(self.send_data_frame.T))
         self.recv()  # receive the data from serial port
 
+def LIMIT_MIN_MAX(x,min,max):
+    if x<=min:
+        x=min
+    elif x>max:
+        x=max
 
-def float_to_uint(x: float, x_min: float, x_max: float, bits: np.uint8):
+def float_to_uint(x: float, x_min: float, x_max: float, bits):
+    LIMIT_MIN_MAX(x, x_min, x_max)
     span = x_max - x_min
     data_norm = (x - x_min) / span
     return np.uint16(data_norm * ((1 << bits) - 1))
 
 
-def uint_to_float(x: np.uint16, xmin: float, xmax: float, bits: np.uint8):
+def uint_to_float(x: np.uint16, xmin: float, xmax: float, bits):
+    LIMIT_MIN_MAX(x,xmin,xmax)
     span = xmax - xmin
     data_norm = float(x) / ((1 << bits) - 1)
-    return np.float32(data_norm * span + xmin)
+    temp=data_norm * span + xmin
+    return np.float32(temp)
