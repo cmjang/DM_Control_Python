@@ -1,6 +1,7 @@
 import time
 import numpy as np
 from enum import IntEnum
+import struct
 
 
 class DM_Motor_Type(IntEnum):
@@ -10,6 +11,13 @@ class DM_Motor_Type(IntEnum):
     DM6006 = 3
     DM8006 = 4
     DM8009 = 5
+
+
+class Control_Type(IntEnum):
+    MIT = 1
+    POS_VEL = 2
+    VEL = 3
+    Torque_Pos = 4
 
 
 # 电机参数限制
@@ -30,6 +38,12 @@ DM_8009_Limit = Limit_Motor(12.5, 45, 54)
 
 class Motor:
     def __init__(self, MotorType, SlaveID, MasterID):
+        """
+        define Motor object 定义电机对象
+        :param MotorType: Motor type 电机类型
+        :param SlaveID: CANID 电机ID
+        :param MasterID: MasterID 主机ID 建议不要设为0
+        """
         self.Pd = float(0)
         self.Vd = float(0)
         self.cmd_q = float(0)
@@ -57,13 +71,26 @@ class Motor:
         self.cmd_kd = cmd_kd
 
     def getPosition(self):
+        """
+        get the position of the motor 获取电机位置
+        :return: the position of the motor 电机位置
+        """
         return self.state_q
 
     def getVelocity(self):
+        """
+        get the velocity of the motor 获取电机速度
+        :return: the velocity of the motor 电机速度
+        """
         return self.state_dq
 
     def getTorque(self):
+        """
+        get the torque of the motor 获取电机力矩
+        :return: the torque of the motor 电机力矩
+        """
         return self.state_tau
+
 
 # -------------------------------------------------
 # Extract packets from the serial data
@@ -97,6 +124,10 @@ class MotorControl:
          0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0x00], np.uint8)
 
     def __init__(self, serial_device):
+        """
+        define MotorControl object 定义电机控制对象
+        :param serial_device: serial object 串口对象
+        """
         self.serial_ = serial_device
         self.motors_map = dict()
         if self.serial_.is_open:  # open the serial port
@@ -104,15 +135,17 @@ class MotorControl:
             serial_device.close()
         self.serial_.open()
 
-    # -------------------------------------------------
-    # Control the motor
-    # @param DM_Motor: the motor to be controlled
-    # @param kp: the proportional gain 期望的kp
-    # @param kd: the derivative gain  期望的kd
-    # @param q: the desired position  期望位置
-    # @param dq: the desired velocity 期望速度
-    # @param tau: the desired torque  期望力矩
-    def control(self, DM_Motor, kp: float, kd: float, q: float, dq: float, tau: float):
+    def controlMIT(self, DM_Motor, kp: float, kd: float, q: float, dq: float, tau: float):
+        """
+        MIT Control Mode Function 达妙电机MIT控制模式函数
+        :param DM_Motor: Motor object 电机对象
+        :param kp: kp
+        :param kd:  kd
+        :param q:  position  期望位置
+        :param dq:  velocity  期望速度
+        :param tau: torque  期望力矩
+        :return: None
+        """
         if DM_Motor.SlaveID not in self.motors_map:
             print("Motor ID not found")
             return
@@ -124,7 +157,7 @@ class MotorControl:
         q_uint = float_to_uint(q, -Motor_Param_limits[MotorType].Q_MAX, Motor_Param_limits[MotorType].Q_MAX,
                                16)
         dq_uint = float_to_uint(dq, -Motor_Param_limits[MotorType].DQ_MAX, Motor_Param_limits[MotorType].DQ_MAX,
-                               12)
+                                12)
         tau_uint = float_to_uint(tau, -Motor_Param_limits[MotorType].TAU_MAX, Motor_Param_limits[MotorType].TAU_MAX,
                                  12)
         data_buf = np.array([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], np.uint8)
@@ -141,20 +174,112 @@ class MotorControl:
         self.serial_.write(bytes(self.send_data_frame.T))
         self.recv()  # receive the data from serial port
 
-        def control_delay(self, DM_Motor, kp: float, kd: float, q: float, dq: float, tau: float, delay: float):
-            self.control(DM_Motor, kp, kd, q, dq, tau)
-            time.sleep(delay)
+    def control_delay(self, DM_Motor, kp: float, kd: float, q: float, dq: float, tau: float, delay: float):
+        """
+        MIT Control Mode Function with delay 达妙电机MIT控制模式函数带延迟
+        :param DM_Motor: Motor object 电机对象
+        :param kp: kp
+        :param kd: kd
+        :param q:  position  期望位置
+        :param dq:  velocity  期望速度
+        :param tau: torque  期望力矩
+        :param delay: delay time 延迟时间 单位秒
+        """
+        self.controlMIT(DM_Motor, kp, kd, q, dq, tau)
+        time.sleep(delay)
 
-    # enable motor  使能电机
+    def control_Pos_Vel(self, Motor, P_desired: float, V_desired: float):
+        """
+        control the motor in position and velocity control mode 电机位置速度控制模式
+        :param Motor: Motor object 电机对象
+        :param P_desired: desired position 期望位置
+        :param V_desired: desired velocity 期望速度
+        :return: None
+        """
+        if Motor.SlaveID not in self.motors_map:
+            print("Motor ID not found")
+            return
+        self.send_data_frame[13] = Motor.SlaveID
+        self.send_data_frame[14] = 0x01  # vel pos control need 0x100+canid
+        data_buf = np.array([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], np.uint8)
+        P_desired_uint8s = float_to_uint8s(P_desired)
+        V_desired_uint8s = float_to_uint8s(V_desired)
+        data_buf[0:4] = P_desired_uint8s
+        data_buf[4:8] = V_desired_uint8s
+        self.send_data_frame[21:29] = data_buf
+        self.serial_.write(bytes(self.send_data_frame.T))
+        self.recv()  # receive the data from serial port
+
+    def control_Vel(self, Motor, Vel_desired):
+        """
+        control the motor in velocity control mode 电机速度控制模式
+        :param Motor: Motor object 电机对象
+        :param Vel_desired: desired velocity 期望速度
+        """
+        if Motor.SlaveID not in self.motors_map:
+            print("Motor ID not found")
+            return
+        self.send_data_frame[13] = Motor.SlaveID
+        self.send_data_frame[14] = 0x02  # vel control need 0x200+canid
+        data_buf = np.array([0x00, 0x00, 0x00, 0x00], np.uint8)
+        Vel_desired_uint8s = float_to_uint8s(Vel_desired)
+        data_buf[0] = Vel_desired_uint8s[0]
+        data_buf[1] = Vel_desired_uint8s[1]
+        data_buf[2] = Vel_desired_uint8s[2]
+        data_buf[3] = Vel_desired_uint8s[3]
+        self.send_data_frame[21:25] = data_buf
+        self.serial_.write(bytes(self.send_data_frame.T))
+        self.recv()  # receive the data from serial port
+
+    def control_pos_force(self,Motor,Pos_des:float,Vel_des,i_des):
+        """
+        control the motor in EMIT control mode 电机力位混合模式
+        :param Pos_des: desired position rad  期望位置 单位为rad
+        :param Vel_des: desired velocity rad/s  期望速度 为放大100倍
+        :param i_des: desired current rang 0-10000 期望电流标幺值放大10000倍
+        电流标幺值：实际电流值除以最大电流值，最大电流见上电打印
+        """
+        if Motor.SlaveID not in self.motors_map:
+            print("Motor ID not found")
+            return
+        self.send_data_frame[13] = Motor.SlaveID
+        self.send_data_frame[14] = 0x03  # vel control need 0x200+canid
+        data_buf = np.array([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], np.uint8)
+        Pos_desired_uint8s = float_to_uint8s(Pos_des)
+        data_buf[0:4] = Pos_desired_uint8s
+
+        Vel_uint= np.uint16(Vel_des)
+        ides_uint= np.uint16(i_des)
+        data_buf[4]=Vel_uint & 0xff
+        data_buf[5]=Vel_uint >> 8
+        data_buf[6]=ides_uint&0xff
+        data_buf[7]=ides_uint>>8
+        print(data_buf)
+        self.send_data_frame[21:29] = data_buf
+        self.serial_.write(bytes(self.send_data_frame.T))
+        self.recv()  # receive the data from serial port
+
+
     def enable(self, Motor):
+        """
+        enable motor 使能电机
+        最好在上电后几秒后再使能电机
+        :param Motor: Motor object 电机对象
+        """
         self.control_cmd(Motor, np.uint8(0xFC))
 
-    # disable motor  关闭电机
     def disable(self, Motor):
+        """
+        disable motor 失能电机
+        :param Motor: Motor object 电机对象
+        """
         self.control_cmd(Motor, np.uint8(0xFD))
 
-    # set zero position  设置零点
     def zero_position(self, Motor):
+        """
+        set the zero position of the motor 设置电机0位
+        :param Motor: Motor object 电机对象
+        """
         self.control_cmd(Motor, np.uint8(0xFE))
 
     def recv(self):
@@ -166,7 +291,6 @@ class MotorControl:
                 CANID = (packet[6] << 24) | (packet[5] << 16) | (packet[4] << 8) | packet[3]
                 CMD = packet[1]
                 self.process_packet(data, CANID, CMD)
-                # print("CANID: ", hex(CANID), "CMD: ", hex(CMD))
 
     def process_packet(self, data, CANID, CMD):
         if CMD == 0x11:
@@ -183,8 +307,11 @@ class MotorControl:
                                          Motor_Param_limits[MotorType_recv].TAU_MAX, 12)
                 self.motors_map[CANID].recv_data(recv_q, recv_dq, recv_tau)
 
-    # add motor to the motor control 添加电机
     def addMotor(self, Motor):
+        """
+        add motor to the motor control object 添加电机到电机控制对象
+        :param Motor: Motor object 电机对象
+        """
         self.motors_map[Motor.SlaveID] = Motor
         if Motor.MasterID != 0:
             self.motors_map[Motor.MasterID] = Motor
@@ -196,11 +323,47 @@ class MotorControl:
         self.serial_.write(bytes(self.send_data_frame.T))
         self.recv()  # receive the data from serial port
 
-def LIMIT_MIN_MAX(x,min,max):
-    if x<=min:
-        x=min
-    elif x>max:
-        x=max
+    def read_motor_param(self, Motor, RID):
+        data_buf = np.array([np.uint8(Motor.SlaveID), 0x00, 0x33, np.uint8(RID), 0x00, 0x00, 0x00, 0x00], np.uint8)
+        self.send_data_frame[13] = 0xFF
+        self.send_data_frame[14] = 0x07
+        self.send_data_frame[21:29] = data_buf
+        self.serial_.write(bytes(self.send_data_frame.T))
+
+    #   self.recv()  # receive the data from serial port
+
+    def write_motor_param(self, Motor, RID, data):
+        data_buf = np.array([np.uint8(Motor.SlaveID), 0x00, 0x55, np.uint8(RID), 0x00, 0x00, 0x00, 0x00], np.uint8)
+        data_buf[4:8] = data
+        self.send_data_frame[13] = 0xFF
+        self.send_data_frame[14] = 0x07
+        self.send_data_frame[21:29] = data_buf
+        self.serial_.write(bytes(self.send_data_frame.T))
+
+    def switchControlMode(self, Motor, ControlMode):
+        """
+        switch the control mode of the motor 切换电机控制模式
+        :param Motor: Motor object 电机对象
+        :param ControlMode: Control_Type 电机控制模式 example:MIT:Control_Type.MIT MIT模式
+        """
+        write_data = np.array([np.uint8(ControlMode), 0x00, 0x00, 0x00], np.uint8)
+        self.write_motor_param(Motor, 10, write_data)
+
+    def save_motor_param(self, Motor):
+        data_buf = np.array([np.uint8(Motor.SlaveID), 0x00, 0xAA, 0x00, 0x00, 0x00, 0x00, 0x00], np.uint8)
+        self.send_data_frame[13] = 0xFF
+        self.send_data_frame[14] = 0x07
+        self.send_data_frame[21:29] = data_buf
+        self.serial_.write(bytes(self.send_data_frame.T))
+        self.recv()
+
+
+def LIMIT_MIN_MAX(x, min, max):
+    if x <= min:
+        x = min
+    elif x > max:
+        x = max
+
 
 def float_to_uint(x: float, x_min: float, x_max: float, bits):
     LIMIT_MIN_MAX(x, x_min, x_max)
@@ -209,9 +372,15 @@ def float_to_uint(x: float, x_min: float, x_max: float, bits):
     return np.uint16(data_norm * ((1 << bits) - 1))
 
 
-def uint_to_float(x: np.uint16, xmin: float, xmax: float, bits):
-    LIMIT_MIN_MAX(x,xmin,xmax)
-    span = xmax - xmin
+def uint_to_float(x: np.uint16, min: float, max: float, bits):
+    span = max - min
     data_norm = float(x) / ((1 << bits) - 1)
-    temp=data_norm * span + xmin
+    temp = data_norm * span + min
     return np.float32(temp)
+
+
+def float_to_uint8s(value):
+    # Pack the float into 4 bytes
+    packed = struct.pack('f', value)
+    # Unpack the bytes into four uint8 values
+    return struct.unpack('4B', packed)
