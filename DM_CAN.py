@@ -320,6 +320,7 @@ class MotorControl:
     def control_cmd(self, Motor, cmd: np.uint8):
         data_buf = np.array([0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, cmd], np.uint8)
         self.send_data_frame[13] = np.uint8(Motor.SlaveID)
+        self.send_data_frame[14] = 0 
         self.send_data_frame[21:29] = data_buf
         self.serial_.write(bytes(self.send_data_frame.T))
         self.recv()  # receive the data from serial port
@@ -330,6 +331,7 @@ class MotorControl:
         self.send_data_frame[14] = 0x07
         self.send_data_frame[21:29] = data_buf
         self.serial_.write(bytes(self.send_data_frame.T))
+        self.send_data_frame[14] = 0 #用完赶紧改回来
 
     #   self.recv()  # receive the data from serial port
 
@@ -340,6 +342,7 @@ class MotorControl:
         self.send_data_frame[14] = 0x07
         self.send_data_frame[21:29] = data_buf
         self.serial_.write(bytes(self.send_data_frame.T))
+        self.send_data_frame[14] = 0 #用完赶紧改回来
 
     def switchControlMode(self, Motor, ControlMode):
         """
@@ -357,6 +360,7 @@ class MotorControl:
         self.send_data_frame[21:29] = data_buf
         self.serial_.write(bytes(self.send_data_frame.T))
         self.recv()
+        self.send_data_frame[14] = 0 #用完赶紧改回来
 
 
 def LIMIT_MIN_MAX(x, min, max):
