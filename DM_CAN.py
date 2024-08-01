@@ -169,6 +169,7 @@ class MotorControl:
         data_buf[5] = kd_uint >> 4
         data_buf[6] = ((kd_uint & 0xf) << 4) | ((tau_uint >> 8) & 0xf)
         data_buf[7] = tau_uint & 0xff
+        self.send_data_frame[14] = 0
         self.send_data_frame[13] = DM_Motor.SlaveID
         self.send_data_frame[21:29] = data_buf
         self.serial_.write(bytes(self.send_data_frame.T))
