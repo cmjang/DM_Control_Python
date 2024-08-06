@@ -1,6 +1,6 @@
 # 达妙Python库
 
-该库目前支持Linux和Windows。示例代码为windows下测试
+该库目前支持Linux和Windows（没有mac没法测试，感觉应该也可以）。示例代码为windows下测试
 
 **欢迎加入QQ群：677900232 进行达妙电机技术交流。欢迎进入达妙店铺进行点击选购**[首页-达妙智能控制企业店-淘宝网 (taobao.com)](https://shop290016675.taobao.com/?spm=pc_detail.29232929/evo365560b447259.shop_block.dshopinfo.59f47dd6w4Z4dX)
 
@@ -99,21 +99,57 @@ MotorControl1.control_Vel(Motor1, q*5)
 MotorControl1.control_pos_force(Motor1, 10, 1000,100)
 ```
 
-### 4.电机模式更改
+### 4.电机内部参数更改
 
-达妙电机新固件支持使用can进行电机模式修改，以及修改其他参数等操作。具体请咨询达妙客服。
+达妙电机新固件支持使用can进行电机模式修改，以及修改其他参数等操作。要求版本号5013及以上。具体请咨询达妙客服。
 
-通过下面的函数可以对电机的控制模式进行修改。支持MIT,POS_VEL,VEL,Torque_Pos。四种控制模式在线修改。下面是修改的demo。
+#### 4.1电机控制模式更改
+
+通过下面的函数可以对电机的控制模式进行修改。支持MIT,POS_VEL,VEL,Torque_Pos。四种控制模式在线修改。下面是修改的demo。并且代码会有返回值，如果是True那么说明设置成功了，如果不是也不一定没修改成功hhhh。
 
 ```python
-MotorControl1.switchControlMode(Motor1,Control_Type.POS_VEL)
+if MotorControl1.switchControlMode(Motor1,Control_Type.POS_VEL):
+    print("switch POS_VEL success")
+if MotorControl1.switchControlMode(Motor2,Control_Type.VEL):
+    print("switch VEL success")
 ```
 
-**保存参数**
+#### 4.2保存参数
 
 默认电机修改模式等操作后参数不会保存到flash中，需要使用命令如下进行保存至电机的flash中
 
 ```python
 MotorControl1.save_motor_param(Motor1)
+```
+
+#### 4.3 读取内部寄存器参数
+
+内部寄存器有很多参数都是可以通过can线读取，具体参数列表请看达妙的手册。其中可以读的参数都已经在DM_variable这个枚举类里面了。可以通过read_motor_param进行读取
+
+```python
+print("PMAX:",MotorControl1.read_motor_param(Motor1,DM_variable.PMAX))
+print("MST_ID:",MotorControl1.read_motor_param(Motor1,DM_variable.MST_ID))
+print("VMAX:",MotorControl1.read_motor_param(Motor1,DM_variable.VMAX))
+print("TMAX:",MotorControl1.read_motor_param(Motor1,DM_variable.TMAX))
+print("Motor2:")
+print("PMAX:",MotorControl1.read_motor_param(Motor2,DM_variable.PMAX))
+print("MST_ID:",MotorControl1.read_motor_param(Motor2,DM_variable.MST_ID))
+print("VMAX:",MotorControl1.read_motor_param(Motor2,DM_variable.VMAX))
+print("TMAX:",MotorControl1.read_motor_param(Motor2,DM_variable.TMAX))
+```
+
+并且每次读取参数后，当前的参数也会同时存在对应的电机类里面，通过getParam这个函数进行读取。
+
+```python
+print("PMAX",Motor1.getParam(DM_variable.PMAX))
+```
+
+#### 4.4改写内部寄存器参数
+
+内部寄存器有一部分是支持修改的，一部分是只读的（无法修改）。通过调用change_motor_param这个函数可以进行寄存器内部值修改。并且也如同上面读寄存器的操作一样，他的寄存器的值也会同步到电机对象的内部值，可以通过Motor1.getParam这个函数进行读取。
+
+```python
+if MotorControl1.change_motor_param(Motor1,DM_variable.KP_APR,54):
+   print("write success")
 ```
 
