@@ -339,6 +339,7 @@ class MotorControl:
     def save_motor_param(self, Motor):
         data_buf = np.array([np.uint8(Motor.SlaveID), 0x00, 0xAA, 0x00, 0x00, 0x00, 0x00, 0x00], np.uint8)
         self.__send_data(0x7FF, data_buf)
+        time.sleep(0.1)
 
     def change_limit_param(self, Motor_Type, PMAX, VMAX, TMAX):
         """
@@ -417,7 +418,7 @@ class MotorControl:
             else:
                 i += 1
         self.data_save = data[remainder_pos:]
-        print("data_save:", self.data_save)
+        # print("data_save:", self.data_save)
         return frames
 
 
