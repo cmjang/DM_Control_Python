@@ -302,7 +302,6 @@ class MotorControl:
     def read_RID_param(self, Motor, RID):
         data_buf = np.array([np.uint8(Motor.SlaveID), 0x00, 0x33, np.uint8(RID), 0x00, 0x00, 0x00, 0x00], np.uint8)
         self.__send_data(0x7FF, data_buf)
-        time.sleep(0.1)
 
     def __write_motor_param(self, Motor, RID, data):
         data_buf = np.array([np.uint8(Motor.SlaveID), 0x00, 0x55, np.uint8(RID), 0x00, 0x00, 0x00, 0x00], np.uint8)
@@ -375,7 +374,7 @@ class MotorControl:
         time.sleep(0.1)
         self.recv_set_param_data()
         if Motor.SlaveID in self.motors_map:
-            if self.motors_map[Motor.SlaveID].temp_param_dict[RID] == data:
+            if abs(self.motors_map[Motor.SlaveID].temp_param_dict[RID]- data)<0.1:
                 return True
             else:
                 return False
@@ -390,7 +389,7 @@ class MotorControl:
         :return: 电机参数的值
         """
         self.read_RID_param(Motor, RID)
-        time.sleep(0.01)
+        time.sleep(0.08)
         self.recv_set_param_data()
         if Motor.SlaveID in self.motors_map:
             if RID in self.motors_map[Motor.SlaveID].temp_param_dict:
