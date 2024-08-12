@@ -68,8 +68,8 @@ class MotorControl:
          0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0x00], np.uint8)
     #                4310           4310_48        4340           4340_48
     Limit_Param = [[12.5, 30, 10], [12.5, 50, 10], [12.5, 8, 28], [12.5, 10, 28],
-                   # 6006           8006           8009
-                   [12.5, 45, 20], [12.5, 45, 40], 12.5, 45, 54]
+                   # 6006           8006           8009            10010L         10010
+                   [12.5, 45, 20], [12.5, 45, 40], [12.5, 45, 54],[12.5,25,200],[12.5,20,200]]
 
     def __init__(self, serial_device):
         """
@@ -96,7 +96,7 @@ class MotorControl:
         :return: None
         """
         if DM_Motor.SlaveID not in self.motors_map:
-            print("Motor ID not found")
+            print("controlMIT ERROR : Motor ID not found")
             return
         kp_uint = float_to_uint(kp, 0, 500, 12)
         kd_uint = float_to_uint(kd, 0, 5, 12)
@@ -142,7 +142,7 @@ class MotorControl:
         :return: None
         """
         if Motor.SlaveID not in self.motors_map:
-            print("Motor ID not found")
+            print("Control Pos_Vel Error : Motor ID not found")
             return
         motorid = 0x100 + Motor.SlaveID
         data_buf = np.array([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], np.uint8)
@@ -161,7 +161,7 @@ class MotorControl:
         :param Vel_desired: desired velocity 期望速度
         """
         if Motor.SlaveID not in self.motors_map:
-            print("Motor ID not found")
+            print("control_VEL ERROR : Motor ID not found")
             return
         motorid = 0x200 + Motor.SlaveID
         data_buf = np.array([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], np.uint8)
@@ -179,7 +179,7 @@ class MotorControl:
         电流标幺值：实际电流值除以最大电流值，最大电流见上电打印
         """
         if Motor.SlaveID not in self.motors_map:
-            print("Motor ID not found")
+            print("control_pos_vel ERROR : Motor ID not found")
             return
         motorid = 0x300 + Motor.SlaveID
         data_buf = np.array([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], np.uint8)
@@ -216,6 +216,7 @@ class MotorControl:
         :param Motor: Motor object 电机对象
         """
         self.__control_cmd(Motor, np.uint8(0xFE))
+        time.sleep(0.5)
 
     def recv(self):
         # 把上次没有解析完的剩下的也放进来
@@ -322,7 +323,7 @@ class MotorControl:
         """
         RID = 10
         self.__write_motor_param(Motor, RID, np.uint8(ControlMode))
-        time.sleep(0.01)
+        time.sleep(0.1)
         self.recv_set_param_data()
         if Motor.SlaveID in self.motors_map:
             if RID in self.motors_map[Motor.SlaveID].temp_param_dict:
@@ -335,8 +336,26 @@ class MotorControl:
         else:
             return False
 
-    def save_motor_param(self, Motor):
-        data_buf = np.array([np.uint8(Motor.SlaveID), 0x00, 0xAA, 0x00, 0x00, 0x00, 0x00, 0x00], np.uint8)
+    def switchControlMode_And_save(self,Motor, ControlMode):
+        """
+        switch the control mode of the motor with save param to flash 切换电机控制模式并且保存参数到flash
+        :param Motor: 电机对象
+        :param ControlMode: Control_Type 电机控制模式 example:MIT:Control_Type.MIT MIT模式
+        :return:
+        """
+        flag = self.switchControlMode(Motor, ControlMode)
+        self.save_motor_param(Motor,ControlMode)
+        return flag
+
+
+    def save_motor_param(self, Motor,RID):
+        """
+        save the RID of the motor to flash 保存电机参数到flash
+        :param Motor: Motor object 电机对象
+        :param RID: DM_variable 电机参数 example:RID:DM_variable.PMAX 电机参数
+        :return:
+        """
+        data_buf = np.array([np.uint8(Motor.SlaveID), 0x00, 0xAA,np.uint8(RID), 0x00, 0x00, 0x00, 0x00], np.uint8)
         self.__send_data(0x7FF, data_buf)
         time.sleep(0.1)
 
@@ -380,6 +399,18 @@ class MotorControl:
                 return False
         else:
             return False
+
+    def change_motor_param_And_save(self, Motor, RID, data):
+        """
+        change the RID of the motor and save param to flash 改变电机的参数并且将电机参数保存到flash中
+        :param Motor: Motor object 电机对象
+        :param RID: DM_variable 电机参数
+        :param data: 电机参数的值
+        :return: True or False ,True means success, False means fail
+        """
+        flag = self.change_motor_param(Motor, RID, data)
+        self.save_motor_param(Motor, RID)
+        return flag
 
     def read_motor_param(self, Motor, RID):
         """
@@ -506,6 +537,8 @@ class DM_Motor_Type(IntEnum):
     DM6006 = 4
     DM8006 = 5
     DM8009 = 6
+    DM10010L = 7
+    DM10010 = 8
 
 
 class DM_variable(IntEnum):

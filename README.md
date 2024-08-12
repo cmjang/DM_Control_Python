@@ -105,7 +105,7 @@ MotorControl1.control_pos_force(Motor1, 10, 1000,100)
 
 #### 4.1电机控制模式更改
 
-通过下面的函数可以对电机的控制模式进行修改。支持MIT,POS_VEL,VEL,Torque_Pos。四种控制模式在线修改。下面是修改的demo。并且代码会有返回值，如果是True那么说明设置成功了，如果不是也不一定没修改成功hhhh。
+通过下面的函数可以对电机的控制模式进行修改。支持MIT,POS_VEL,VEL,Torque_Pos。四种控制模式在线修改。下面是修改的demo。并且代码会有返回值，如果是True那么说明设置成功了，如果不是也不一定没修改成功hhhh。**请注意这里模式修改只是当前有效，掉电后这个模式还是修改前的**
 
 ```python
 if MotorControl1.switchControlMode(Motor1,Control_Type.POS_VEL):
@@ -114,12 +114,21 @@ if MotorControl1.switchControlMode(Motor2,Control_Type.VEL):
     print("switch VEL success")
 ```
 
-#### 4.2保存参数
-
-默认电机修改模式等操作后参数不会保存到flash中，需要使用命令如下进行保存至电机的flash中
+**如果要保持电机控制模式可以使用下面的带保持功能的函数**
 
 ```python
-MotorControl1.save_motor_param(Motor1)
+if MotorControl1.switchControlMode_And_save(Motor1,Control_Type.POS_VEL):
+    print("switch POS_VEL success")
+if MotorControl1.switchControlMode_And_save(Motor2,Control_Type.VEL):
+    print("switch VEL success")
+```
+
+#### 4.2保存参数
+
+默认电机修改模式等操作后参数不会保存到flash中，需要使用命令如下进行保存至电机的flash中。修改了一个参数，保存一个参数。例子如下
+
+```python
+MotorControl1.save_motor_param(Motor1,DM_variable.PMAX)
 ```
 
 #### 4.3 读取内部寄存器参数
@@ -148,8 +157,19 @@ print("PMAX",Motor1.getParam(DM_variable.PMAX))
 
 内部寄存器有一部分是支持修改的，一部分是只读的（无法修改）。通过调用change_motor_param这个函数可以进行寄存器内部值修改。并且也如同上面读寄存器的操作一样，他的寄存器的值也会同步到电机对象的内部值，可以通过Motor1.getParam这个函数进行读取。
 
+**请注意这个修改内部寄存器参数，掉电后会恢复为修改前的，并没有保存**
+
 ```python
 if MotorControl1.change_motor_param(Motor1,DM_variable.KP_APR,54):
+   print("write success")
+#上面的代码是仅仅修改了参数，没有保存到flash中，下面的代码可以保存到电机flash中
+MotorControl1.save_motor_param(Motor1,DM_variable.KP_APR)
+```
+
+**下面的可以修改并且保存**
+
+```python
+if MotorControl1.change_motor_param_And_save(Motor1,DM_variable.KP_APR,54):
    print("write success")
 ```
 
