@@ -31,6 +31,7 @@ print("VMAX:",MotorControl1.read_motor_param(Motor2,DM_variable.VMAX))
 print("TMAX:",MotorControl1.read_motor_param(Motor2,DM_variable.TMAX))
 # MotorControl1.enable(Motor3)
 MotorControl1.save_motor_param(Motor1)
+MotorControl1.save_motor_param(Motor2)
 MotorControl1.enable(Motor1)
 MotorControl1.enable(Motor2)
 i=0
