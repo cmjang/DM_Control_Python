@@ -10,8 +10,7 @@ serial_device = serial.Serial('COM8', 921600, timeout=0.5)
 MotorControl1=MotorControl(serial_device)
 MotorControl1.addMotor(Motor1)
 MotorControl1.addMotor(Motor2)
-MotorControl1.enable(Motor1)
-MotorControl1.enable(Motor2)
+
 if MotorControl1.switchControlMode(Motor1,Control_Type.POS_VEL):
     print("switch POS_VEL success")
 if MotorControl1.switchControlMode(Motor2,Control_Type.VEL):
@@ -32,6 +31,8 @@ print("VMAX:",MotorControl1.read_motor_param(Motor2,DM_variable.VMAX))
 print("TMAX:",MotorControl1.read_motor_param(Motor2,DM_variable.TMAX))
 # MotorControl1.enable(Motor3)
 MotorControl1.save_motor_param(Motor1)
+MotorControl1.enable(Motor1)
+MotorControl1.enable(Motor2)
 i=0
 while i<10000:
     q=math.sin(time.time())

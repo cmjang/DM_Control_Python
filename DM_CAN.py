@@ -69,7 +69,7 @@ class MotorControl:
     #                4310           4310_48        4340           4340_48
     Limit_Param = [[12.5, 30, 10], [12.5, 50, 10], [12.5, 8, 28], [12.5, 10, 28],
                    # 6006           8006           8009            10010L         10010
-                   [12.5, 45, 20], [12.5, 45, 40], [12.5, 45, 54],[12.5,25,200],[12.5,20,200]]
+                   [12.5, 45, 20], [12.5, 45, 40], [12.5, 45, 54], [12.5, 25, 200], [12.5, 20, 200]]
 
     def __init__(self, serial_device):
         """
@@ -209,19 +209,20 @@ class MotorControl:
         :param Motor: Motor object 电机对象
         """
         self.__control_cmd(Motor, np.uint8(0xFD))
+        time.sleep(0.01)
 
-    def zero_position(self, Motor):
+    def set_zero_position(self, Motor):
         """
         set the zero position of the motor 设置电机0位
         :param Motor: Motor object 电机对象
         """
         self.__control_cmd(Motor, np.uint8(0xFE))
-        time.sleep(0.5)
+        time.sleep(0.1)
 
     def recv(self):
         # 把上次没有解析完的剩下的也放进来
         data_recv = self.data_save + self.serial_.read_all()
-        packets = self.extract_packets(data_recv)
+        packets = self.__extract_packets(data_recv)
         for packet in packets:
             data = packet[7:15]
             CANID = (packet[6] << 24) | (packet[5] << 16) | (packet[4] << 8) | packet[3]
@@ -230,7 +231,7 @@ class MotorControl:
 
     def recv_set_param_data(self):
         data_recv = self.serial_.read_all()
-        packets = self.extract_packets(data_recv)
+        packets = self.__extract_packets(data_recv)
         for packet in packets:
             data = packet[7:15]
             CANID = (packet[6] << 24) | (packet[5] << 16) | (packet[4] << 8) | packet[3]
@@ -336,28 +337,16 @@ class MotorControl:
         else:
             return False
 
-    def switchControlMode_And_save(self,Motor, ControlMode):
+    def save_motor_param(self, Motor):
         """
-        switch the control mode of the motor with save param to flash 切换电机控制模式并且保存参数到flash
-        :param Motor: 电机对象
-        :param ControlMode: Control_Type 电机控制模式 example:MIT:Control_Type.MIT MIT模式
-        :return:
-        """
-        flag = self.switchControlMode(Motor, ControlMode)
-        self.save_motor_param(Motor,ControlMode)
-        return flag
-
-
-    def save_motor_param(self, Motor,RID):
-        """
-        save the RID of the motor to flash 保存电机参数到flash
+        save the all parameter  to flash 保存所有电机参数
         :param Motor: Motor object 电机对象
-        :param RID: DM_variable 电机参数 example:RID:DM_variable.PMAX 电机参数
         :return:
         """
-        data_buf = np.array([np.uint8(Motor.SlaveID), 0x00, 0xAA,np.uint8(RID), 0x00, 0x00, 0x00, 0x00], np.uint8)
+        data_buf = np.array([np.uint8(Motor.SlaveID), 0x00, 0xAA, 0x00, 0x00, 0x00, 0x00, 0x00], np.uint8)
+        self.disable(Motor)  # before save disable the motor
         self.__send_data(0x7FF, data_buf)
-        time.sleep(0.1)
+        time.sleep(0.01)
 
     def change_limit_param(self, Motor_Type, PMAX, VMAX, TMAX):
         """
@@ -393,24 +382,12 @@ class MotorControl:
         time.sleep(0.1)
         self.recv_set_param_data()
         if Motor.SlaveID in self.motors_map:
-            if abs(self.motors_map[Motor.SlaveID].temp_param_dict[RID]- data)<0.1:
+            if abs(self.motors_map[Motor.SlaveID].temp_param_dict[RID] - data) < 0.1:
                 return True
             else:
                 return False
         else:
             return False
-
-    def change_motor_param_And_save(self, Motor, RID, data):
-        """
-        change the RID of the motor and save param to flash 改变电机的参数并且将电机参数保存到flash中
-        :param Motor: Motor object 电机对象
-        :param RID: DM_variable 电机参数
-        :param data: 电机参数的值
-        :return: True or False ,True means success, False means fail
-        """
-        flag = self.change_motor_param(Motor, RID, data)
-        self.save_motor_param(Motor, RID)
-        return flag
 
     def read_motor_param(self, Motor, RID):
         """
@@ -429,9 +406,10 @@ class MotorControl:
                 return None
         else:
             return None
+
     # -------------------------------------------------
     # Extract packets from the serial data
-    def extract_packets(self, data):
+    def __extract_packets(self, data):
         frames = []
         header = 0xAA
         tail = 0x55

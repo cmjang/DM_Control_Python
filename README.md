@@ -42,7 +42,9 @@ MotorControl1=MotorControl(serial_device)
 
 **推荐在每帧控制完后延迟2ms或者1ms，usb转can默认有缓冲器没有延迟也可使用，但是推荐加上延迟。**
 
-添加电机是addMotor，然后使能电机是enable
+添加电机是addMotor，然后使能电机是enable。
+
+**建议：如果要修改电机参数。建议使能放在最后**
 
 ```python
 MotorControl1.addMotor(Motor1)
@@ -53,7 +55,16 @@ MotorControl1.enable(Motor2)
 MotorControl1.enable(Motor3)
 ```
 
-#### 3.1MIT模式
+#### 3.1设置电机零点
+
+将电机在失能状态下摆到需要设置为0点的位置，然后运行下面两行，电机将会将当前位置作为电机0点。
+
+```python
+MotorControl1.set_zero_position(Motor3)
+MotorControl1.set_zero_position(Motor6)
+```
+
+#### 3.2MIT模式
 
 使能电机后可以使用MIT模式控制，推荐用MIT模式控制。
 
@@ -67,7 +78,7 @@ MotorControl1.controlMIT(Motor1, 50, 0.3, 0, 0, 0)
 MotorControl1.controlMIT_delay(Motor1, 50, 0.3, 0, 0, 0，0.001)
 ```
 
-#### 3.2 位置速度模式
+#### 3.3位置速度模式
 
 位置速度模式，第一个参数是电机对象，第二个是位置，第三个是转动速度。具体的参数介绍已经写了函数文档，用pycharm等ide就可以看到。
 
@@ -78,7 +89,7 @@ q=math.sin(time.time())
 MotorControl1.control_Pos_Vel(Motor1,q*10,2)
 ```
 
-#### 3.3 速度模式
+#### 3.4 速度模式
 
 例子如下，第一个是电机对象，第二个是电机速度
 
@@ -89,7 +100,7 @@ MotorControl1.control_Vel(Motor1, q*5)
 
 目前达妙的新固件支持切换
 
-#### 3.4力位混合模式
+#### 3.5力位混合模式
 
 第一个是电机对象，第二个是电机位置，第三个是电机速度范围是0-10000，第四个是电机电流范围为0-10000。具体详细请查看达妙文档
 
@@ -101,7 +112,7 @@ MotorControl1.control_pos_force(Motor1, 10, 1000,100)
 
 ### 4.电机内部参数更改
 
-达妙电机新固件支持使用can进行电机模式修改，以及修改其他参数等操作。要求版本号5013及以上。具体请咨询达妙客服。
+达妙电机新固件支持使用can进行电机模式修改，以及修改其他参数等操作。要求版本号5013及以上。具体请咨询达妙客服。**请注意所有保存参数、修改参数。请在失能模式下修改！！**
 
 #### 4.1电机控制模式更改
 
@@ -114,21 +125,14 @@ if MotorControl1.switchControlMode(Motor2,Control_Type.VEL):
     print("switch VEL success")
 ```
 
-**如果要保持电机控制模式可以使用下面的带保持功能的函数**
-
-```python
-if MotorControl1.switchControlMode_And_save(Motor1,Control_Type.POS_VEL):
-    print("switch POS_VEL success")
-if MotorControl1.switchControlMode_And_save(Motor2,Control_Type.VEL):
-    print("switch VEL success")
-```
+**如果要保持电机控制模式，需要最后保存参数**
 
 #### 4.2保存参数
 
-默认电机修改模式等操作后参数不会保存到flash中，需要使用命令如下进行保存至电机的flash中。修改了一个参数，保存一个参数。例子如下
+默认电机修改模式等操作后参数不会保存到flash中，需要使用命令如下进行保存至电机的flash中。这一个例子如下。**请注意这一个代码就把所有修改的都保存到Motor1的flash中，并且请在失能模式下进行修改**，该函数内部有自动失能的代码，防止电机在使能模式下无法保存参数。
 
 ```python
-MotorControl1.save_motor_param(Motor1,DM_variable.PMAX)
+MotorControl1.save_motor_param(Motor1)
 ```
 
 #### 4.3 读取内部寄存器参数
@@ -162,14 +166,6 @@ print("PMAX",Motor1.getParam(DM_variable.PMAX))
 ```python
 if MotorControl1.change_motor_param(Motor1,DM_variable.KP_APR,54):
    print("write success")
-#上面的代码是仅仅修改了参数，没有保存到flash中，下面的代码可以保存到电机flash中
-MotorControl1.save_motor_param(Motor1,DM_variable.KP_APR)
 ```
 
-**下面的可以修改并且保存**
-
-```python
-if MotorControl1.change_motor_param_And_save(Motor1,DM_variable.KP_APR,54):
-   print("write success")
-```
 
