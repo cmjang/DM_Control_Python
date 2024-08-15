@@ -203,6 +203,18 @@ class MotorControl:
         self.__control_cmd(Motor, np.uint8(0xFC))
         time.sleep(0.1)
 
+    def enable_old(self, Motor ,ControlMode):
+        """
+        enable motor old firmware 使能电机旧版本固件，这个是为了旧版本电机固件的兼容性
+        可恶的旧版本固件使能需要加上偏移量
+        最好在上电后几秒后再使能电机
+        :param Motor: Motor object 电机对象
+        """
+        data_buf = np.array([0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfc], np.uint8)
+        enable_id = ((int(ControlMode)-1) << 2) + Motor.SlaveID
+        self.__send_data(enable_id, data_buf)
+        time.sleep(0.1)
+
     def disable(self, Motor):
         """
         disable motor 失能电机

@@ -55,6 +55,14 @@ MotorControl1.enable(Motor2)
 MotorControl1.enable(Motor3)
 ```
 
+此代码为兼容旧固件，关于旧版本电机固件，使能对应不同模式需要加上使能的模式（即需要使能电机对应的模式，并不能修改电机此时的模式）**注意需要使能电机此时对应的模式，并不能修改电机内部的模式**
+
+```python
+MotorControl1.enable_old(Motor1,Control_Type.MIT)
+MotorControl1.enable_old(Motor2,Control_Type.POS_VEL)
+MotorControl1.enable_old(Motor3,Control_Type.VEL)
+```
+
 #### 3.1设置电机零点
 
 将电机在失能状态下摆到需要设置为0点的位置，然后运行下面两行，电机将会将当前位置作为电机0点。
@@ -167,5 +175,4 @@ print("PMAX",Motor1.getParam(DM_variable.PMAX))
 if MotorControl1.change_motor_param(Motor1,DM_variable.KP_APR,54):
    print("write success")
 ```
-
 
