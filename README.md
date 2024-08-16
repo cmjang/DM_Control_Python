@@ -80,12 +80,6 @@ MotorControl1.set_zero_position(Motor6)
 MotorControl1.controlMIT(Motor1, 50, 0.3, 0, 0, 0)
 ```
 
-其中MotorControl电机控制还有附带delay时间的控制。
-
-```python
-MotorControl1.controlMIT_delay(Motor1, 50, 0.3, 0, 0, 0，0.001)
-```
-
 #### 3.3位置速度模式
 
 位置速度模式，第一个参数是电机对象，第二个是位置，第三个是转动速度。具体的参数介绍已经写了函数文档，用pycharm等ide就可以看到。
