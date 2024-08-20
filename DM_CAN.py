@@ -202,6 +202,7 @@ class MotorControl:
         """
         self.__control_cmd(Motor, np.uint8(0xFC))
         time.sleep(0.1)
+        self.recv()  # receive the data from serial port
 
     def enable_old(self, Motor ,ControlMode):
         """
@@ -214,6 +215,7 @@ class MotorControl:
         enable_id = ((int(ControlMode)-1) << 2) + Motor.SlaveID
         self.__send_data(enable_id, data_buf)
         time.sleep(0.1)
+        self.recv()  # receive the data from serial port
 
     def disable(self, Motor):
         """
@@ -230,6 +232,7 @@ class MotorControl:
         """
         self.__control_cmd(Motor, np.uint8(0xFE))
         time.sleep(0.1)
+        self.recv()  # receive the data from serial port
 
     def recv(self):
         # 把上次没有解析完的剩下的也放进来
@@ -265,26 +268,33 @@ class MotorControl:
                 recv_tau = uint_to_float(tau_uint, -TAU_MAX, TAU_MAX, 12)
                 self.motors_map[CANID].recv_data(recv_q, recv_dq, recv_tau)
 
+
     def __process_set_param_packet(self, data, CANID, CMD):
         if CMD == 0x11 and (data[2] == 0x33 or data[2] == 0x55):
-            masterid_temp = ((data[1] << 8) | data[0])
-            if CANID in self.motors_map or masterid_temp in self.motors_map:
-                RID = data[3]
-                # 读取参数得到的数据
-                if is_in_ranges(RID):
-                    #uint32类型
-                    num = uint8s_to_uint32(data[4], data[5], data[6], data[7])
-                    self.motors_map[CANID].temp_param_dict[RID] = num
-                    return True
+            masterid=CANID
+            slaveId = ((data[1] << 8) | data[0])
+            if CANID==0x00:  #防止有人把MasterID设为0稳一手
+                masterid=slaveId
+
+            if masterid not in self.motors_map:
+                if slaveId not in self.motors_map:
+                    return
                 else:
-                    #float类型
-                    num = uint8s_to_float(data[4], data[5], data[6], data[7])
-                    self.motors_map[CANID].temp_param_dict[RID] = num
-                    return True
+                    masterid=slaveId
+
+            RID = data[3]
+            # 读取参数得到的数据
+            if is_in_ranges(RID):
+                #uint32类型
+                num = uint8s_to_uint32(data[4], data[5], data[6], data[7])
+                self.motors_map[masterid].temp_param_dict[RID] = num
+
             else:
-                return False
-        else:
-            return False
+                #float类型
+                num = uint8s_to_float(data[4], data[5], data[6], data[7])
+                self.motors_map[masterid].temp_param_dict[RID] = num
+
+
 
     def addMotor(self, Motor):
         """
@@ -393,7 +403,7 @@ class MotorControl:
         self.__write_motor_param(Motor, RID, data)
         time.sleep(0.1)
         self.recv_set_param_data()
-        if Motor.SlaveID in self.motors_map:
+        if Motor.SlaveID in self.motors_map and RID in self.motors_map[Motor.SlaveID].temp_param_dict:
             if abs(self.motors_map[Motor.SlaveID].temp_param_dict[RID] - data) < 0.1:
                 return True
             else:
