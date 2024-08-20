@@ -12,7 +12,7 @@
 from DM_CAN import *	
 ```
 
-电机库相关依赖是serial , numpy , struct这几个库，记得安装相关依赖
+电机库相关依赖是serial , numpy 这几个库，记得安装相关依赖。**具体的requirements在目录下面的requirements.txt，这个版本是我目前测试的版本，比这些版本低理论上应该也没啥问题。**
 
 ### 2.定义控制对象
 
