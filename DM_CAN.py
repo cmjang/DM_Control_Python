@@ -1,7 +1,8 @@
-import time
+from time import sleep
 import numpy as np
 from enum import IntEnum
-import struct
+from struct import unpack
+from struct import pack
 
 
 class Motor:
@@ -20,7 +21,7 @@ class Motor:
         self.SlaveID = SlaveID
         self.MasterID = MasterID
         self.MotorType = MotorType
-        self.isenable = False
+        self.isEnable = False
         self.NowControlMode = Control_Type.MIT
         self.temp_param_dict = {}
 
@@ -131,7 +132,7 @@ class MotorControl:
         :param delay: delay time 延迟时间 单位秒
         """
         self.controlMIT(DM_Motor, kp, kd, q, dq, tau)
-        time.sleep(delay)
+        sleep(delay)
 
     def control_Pos_Vel(self, Motor, P_desired: float, V_desired: float):
         """
@@ -201,7 +202,7 @@ class MotorControl:
         :param Motor: Motor object 电机对象
         """
         self.__control_cmd(Motor, np.uint8(0xFC))
-        time.sleep(0.1)
+        sleep(0.1)
         self.recv()  # receive the data from serial port
 
     def enable_old(self, Motor ,ControlMode):
@@ -214,7 +215,7 @@ class MotorControl:
         data_buf = np.array([0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfc], np.uint8)
         enable_id = ((int(ControlMode)-1) << 2) + Motor.SlaveID
         self.__send_data(enable_id, data_buf)
-        time.sleep(0.1)
+        sleep(0.1)
         self.recv()  # receive the data from serial port
 
     def disable(self, Motor):
@@ -223,7 +224,7 @@ class MotorControl:
         :param Motor: Motor object 电机对象
         """
         self.__control_cmd(Motor, np.uint8(0xFD))
-        time.sleep(0.01)
+        sleep(0.01)
 
     def set_zero_position(self, Motor):
         """
@@ -231,12 +232,13 @@ class MotorControl:
         :param Motor: Motor object 电机对象
         """
         self.__control_cmd(Motor, np.uint8(0xFE))
-        time.sleep(0.1)
+        sleep(0.1)
         self.recv()  # receive the data from serial port
 
     def recv(self):
         # 把上次没有解析完的剩下的也放进来
-        data_recv = self.data_save + self.serial_.read_all()
+
+        data_recv = b''.join([self.data_save, self.serial_.read_all()])
         packets = self.__extract_packets(data_recv)
         for packet in packets:
             data = packet[7:15]
@@ -309,27 +311,29 @@ class MotorControl:
     def __control_cmd(self, Motor, cmd: np.uint8):
         data_buf = np.array([0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, cmd], np.uint8)
         self.__send_data(Motor.SlaveID, data_buf)
-        self.recv()  # receive the data from serial port
 
-    def __send_data(self, motorid, data):
+    def __send_data(self, motor_id, data):
         """
         send data to the motor 发送数据到电机
-        :param motorid:
+        :param motor_id:
         :param data:
         :return:
         """
-        self.send_data_frame[13] = motorid & 0xff
-        self.send_data_frame[14] = motorid >> 8
+        self.send_data_frame[13] = motor_id & 0xff
+        self.send_data_frame[14] = (motor_id >> 8)& 0xff  #id high 8 bits
         self.send_data_frame[21:29] = data
         self.serial_.write(bytes(self.send_data_frame.T))
 
-    def read_RID_param(self, Motor, RID):
-        data_buf = np.array([np.uint8(Motor.SlaveID), 0x00, 0x33, np.uint8(RID), 0x00, 0x00, 0x00, 0x00], np.uint8)
+    def __read_RID_param(self, Motor, RID):
+        can_id_l = Motor.SlaveID & 0xff #id low 8 bits
+        can_id_h = (Motor.SlaveID >> 8)& 0xff  #id high 8 bits
+        data_buf = np.array([np.uint8(can_id_l), np.uint8(can_id_h), 0x33, np.uint8(RID), 0x00, 0x00, 0x00, 0x00], np.uint8)
         self.__send_data(0x7FF, data_buf)
 
     def __write_motor_param(self, Motor, RID, data):
-        data_buf = np.array([np.uint8(Motor.SlaveID), 0x00, 0x55, np.uint8(RID), 0x00, 0x00, 0x00, 0x00], np.uint8)
-        # data_buf[4:8] = data
+        can_id_l = Motor.SlaveID & 0xff #id low 8 bits
+        can_id_h = (Motor.SlaveID >> 8)& 0xff  #id high 8 bits
+        data_buf = np.array([np.uint8(can_id_l), np.uint8(can_id_h), 0x55, np.uint8(RID), 0x00, 0x00, 0x00, 0x00], np.uint8)
         if not is_in_ranges(RID):
             # data is float
             data_buf[4:8] = float_to_uint8s(data)
@@ -346,7 +350,7 @@ class MotorControl:
         """
         RID = 10
         self.__write_motor_param(Motor, RID, np.uint8(ControlMode))
-        time.sleep(0.1)
+        sleep(0.1)
         self.recv_set_param_data()
         if Motor.SlaveID in self.motors_map:
             if RID in self.motors_map[Motor.SlaveID].temp_param_dict:
@@ -365,10 +369,12 @@ class MotorControl:
         :param Motor: Motor object 电机对象
         :return:
         """
-        data_buf = np.array([np.uint8(Motor.SlaveID), 0x00, 0xAA, 0x00, 0x00, 0x00, 0x00, 0x00], np.uint8)
+        can_id_l = Motor.SlaveID & 0xff #id low 8 bits
+        can_id_h = (Motor.SlaveID >> 8)& 0xff  #id high 8 bits
+        data_buf = np.array([np.uint8(can_id_l), np.uint8(can_id_h), 0xAA, 0x00, 0x00, 0x00, 0x00, 0x00], np.uint8)
         self.disable(Motor)  # before save disable the motor
         self.__send_data(0x7FF, data_buf)
-        time.sleep(0.01)
+        sleep(0.01)
 
     def change_limit_param(self, Motor_Type, PMAX, VMAX, TMAX):
         """
@@ -383,14 +389,15 @@ class MotorControl:
         self.Limit_Param[Motor_Type][1] = VMAX
         self.Limit_Param[Motor_Type][2] = TMAX
 
-    def change_PMAX(self, Motor_Type, PMAX):
+    def refresh_motor_status(self,Motor):
         """
-        change the PMAX of the motor 改变电机控制的PMAX
-        :param Motor_Type:
-        :param PMAX: 电机的PMAX
-        :return:
+        get the motor status 获得电机状态
         """
-        self.Limit_Param[Motor_Type][0] = PMAX
+        can_id_l = Motor.SlaveID & 0xff #id low 8 bits
+        can_id_h = (Motor.SlaveID >> 8) & 0xff  #id high 8 bits
+        data_buf = np.array([np.uint8(can_id_l), np.uint8(can_id_h), 0xCC, 0x00, 0x00, 0x00, 0x00, 0x00], np.uint8)
+        self.__send_data(0x7FF, data_buf)
+        self.recv()  # receive the data from serial port
 
     def change_motor_param(self, Motor, RID, data):
         """
@@ -401,7 +408,7 @@ class MotorControl:
         :return: True or False ,True means success, False means fail
         """
         self.__write_motor_param(Motor, RID, data)
-        time.sleep(0.1)
+        sleep(0.1)
         self.recv_set_param_data()
         if Motor.SlaveID in self.motors_map and RID in self.motors_map[Motor.SlaveID].temp_param_dict:
             if abs(self.motors_map[Motor.SlaveID].temp_param_dict[RID] - data) < 0.1:
@@ -418,8 +425,8 @@ class MotorControl:
         :param RID: DM_variable 电机参数
         :return: 电机参数的值
         """
-        self.read_RID_param(Motor, RID)
-        time.sleep(0.08)
+        self.__read_RID_param(Motor, RID)
+        sleep(0.08)
         self.recv_set_param_data()
         if Motor.SlaveID in self.motors_map:
             if RID in self.motors_map[Motor.SlaveID].temp_param_dict:
@@ -448,7 +455,6 @@ class MotorControl:
             else:
                 i += 1
         self.data_save = data[remainder_pos:]
-        # print("data_save:", self.data_save)
         return frames
 
 
@@ -475,21 +481,21 @@ def uint_to_float(x: np.uint16, min: float, max: float, bits):
 
 def float_to_uint8s(value):
     # Pack the float into 4 bytes
-    packed = struct.pack('f', value)
+    packed = pack('f', value)
     # Unpack the bytes into four uint8 values
-    return struct.unpack('4B', packed)
+    return unpack('4B', packed)
 
 
 def data_to_uint8s(value):
     # Check if the value is within the range of uint32
     if isinstance(value, int) and (0 <= value <= 0xFFFFFFFF):
         # Pack the uint32 into 4 bytes
-        packed = struct.pack('I', value)
+        packed = pack('I', value)
     else:
         raise ValueError("Value must be an integer within the range of uint32")
 
     # Unpack the bytes into four uint8 values
-    return struct.unpack('4B', packed)
+    return unpack('4B', packed)
 
 
 def is_in_ranges(number):
@@ -505,16 +511,16 @@ def is_in_ranges(number):
 
 def uint8s_to_uint32(byte1, byte2, byte3, byte4):
     # Pack the four uint8 values into a single uint32 value in little-endian order
-    packed = struct.pack('<4B', byte1, byte2, byte3, byte4)
+    packed = pack('<4B', byte1, byte2, byte3, byte4)
     # Unpack the packed bytes into a uint32 value
-    return struct.unpack('<I', packed)[0]
+    return unpack('<I', packed)[0]
 
 
 def uint8s_to_float(byte1, byte2, byte3, byte4):
     # Pack the four uint8 values into a single float value in little-endian order
-    packed = struct.pack('<4B', byte1, byte2, byte3, byte4)
+    packed = pack('<4B', byte1, byte2, byte3, byte4)
     # Unpack the packed bytes into a float value
-    return struct.unpack('<f', packed)[0]
+    return unpack('<f', packed)[0]
 
 
 def print_hex(data):
