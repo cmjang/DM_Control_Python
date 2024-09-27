@@ -237,7 +237,6 @@ class MotorControl:
 
     def recv(self):
         # 把上次没有解析完的剩下的也放进来
-
         data_recv = b''.join([self.data_save, self.serial_.read_all()])
         packets = self.__extract_packets(data_recv)
         for packet in packets:
@@ -257,18 +256,33 @@ class MotorControl:
 
     def __process_packet(self, data, CANID, CMD):
         if CMD == 0x11:
-            if CANID in self.motors_map:
-                q_uint = np.uint16((np.uint16(data[1]) << 8) | data[2])
-                dq_uint = np.uint16((np.uint16(data[3]) << 4) | (data[4] >> 4))
-                tau_uint = np.uint16(((data[4] & 0xf) << 8) | data[5])
-                MotorType_recv = self.motors_map[CANID].MotorType
-                Q_MAX = self.Limit_Param[MotorType_recv][0]
-                DQ_MAX = self.Limit_Param[MotorType_recv][1]
-                TAU_MAX = self.Limit_Param[MotorType_recv][2]
-                recv_q = uint_to_float(q_uint, -Q_MAX, Q_MAX, 16)
-                recv_dq = uint_to_float(dq_uint, -DQ_MAX, DQ_MAX, 12)
-                recv_tau = uint_to_float(tau_uint, -TAU_MAX, TAU_MAX, 12)
-                self.motors_map[CANID].recv_data(recv_q, recv_dq, recv_tau)
+            if CANID != 0x00:
+                if CANID in self.motors_map:
+                    q_uint = np.uint16((np.uint16(data[1]) << 8) | data[2])
+                    dq_uint = np.uint16((np.uint16(data[3]) << 4) | (data[4] >> 4))
+                    tau_uint = np.uint16(((data[4] & 0xf) << 8) | data[5])
+                    MotorType_recv = self.motors_map[CANID].MotorType
+                    Q_MAX = self.Limit_Param[MotorType_recv][0]
+                    DQ_MAX = self.Limit_Param[MotorType_recv][1]
+                    TAU_MAX = self.Limit_Param[MotorType_recv][2]
+                    recv_q = uint_to_float(q_uint, -Q_MAX, Q_MAX, 16)
+                    recv_dq = uint_to_float(dq_uint, -DQ_MAX, DQ_MAX, 12)
+                    recv_tau = uint_to_float(tau_uint, -TAU_MAX, TAU_MAX, 12)
+                    self.motors_map[CANID].recv_data(recv_q, recv_dq, recv_tau)
+            else:
+                MasterID=data[0] & 0x0f
+                if MasterID in self.motors_map:
+                    q_uint = np.uint16((np.uint16(data[1]) << 8) | data[2])
+                    dq_uint = np.uint16((np.uint16(data[3]) << 4) | (data[4] >> 4))
+                    tau_uint = np.uint16(((data[4] & 0xf) << 8) | data[5])
+                    MotorType_recv = self.motors_map[MasterID].MotorType
+                    Q_MAX = self.Limit_Param[MotorType_recv][0]
+                    DQ_MAX = self.Limit_Param[MotorType_recv][1]
+                    TAU_MAX = self.Limit_Param[MotorType_recv][2]
+                    recv_q = uint_to_float(q_uint, -Q_MAX, Q_MAX, 16)
+                    recv_dq = uint_to_float(dq_uint, -DQ_MAX, DQ_MAX, 12)
+                    recv_tau = uint_to_float(tau_uint, -TAU_MAX, TAU_MAX, 12)
+                    self.motors_map[MasterID].recv_data(recv_q, recv_dq, recv_tau)
 
 
     def __process_set_param_packet(self, data, CANID, CMD):
@@ -295,7 +309,6 @@ class MotorControl:
                 #float类型
                 num = uint8s_to_float(data[4], data[5], data[6], data[7])
                 self.motors_map[masterid].temp_param_dict[RID] = num
-
 
 
     def addMotor(self, Motor):
@@ -348,20 +361,20 @@ class MotorControl:
         :param Motor: Motor object 电机对象
         :param ControlMode: Control_Type 电机控制模式 example:MIT:Control_Type.MIT MIT模式
         """
+        max_retries = 10
+        retry_interval = 0.05  #retry times
         RID = 10
         self.__write_motor_param(Motor, RID, np.uint8(ControlMode))
-        sleep(0.1)
-        self.recv_set_param_data()
-        if Motor.SlaveID in self.motors_map:
-            if RID in self.motors_map[Motor.SlaveID].temp_param_dict:
-                if self.motors_map[Motor.SlaveID].temp_param_dict[RID] == ControlMode:
-                    return True
-                else:
-                    return False
-            else:
-                return False
-        else:
-            return False
+        for _ in range(max_retries):
+            sleep(retry_interval)
+            self.recv_set_param_data()
+            if Motor.SlaveID in self.motors_map:
+                if RID in self.motors_map[Motor.SlaveID].temp_param_dict:
+                    if self.motors_map[Motor.SlaveID].temp_param_dict[RID] == ControlMode:
+                        return True
+                    else:
+                        return False
+        return False
 
     def save_motor_param(self, Motor):
         """
@@ -374,7 +387,7 @@ class MotorControl:
         data_buf = np.array([np.uint8(can_id_l), np.uint8(can_id_h), 0xAA, 0x00, 0x00, 0x00, 0x00, 0x00], np.uint8)
         self.disable(Motor)  # before save disable the motor
         self.__send_data(0x7FF, data_buf)
-        sleep(0.01)
+        sleep(0.001)
 
     def change_limit_param(self, Motor_Type, PMAX, VMAX, TMAX):
         """
@@ -407,16 +420,19 @@ class MotorControl:
         :param data: 电机参数的值
         :return: True or False ,True means success, False means fail
         """
+        max_retries = 20
+        retry_interval = 0.05  #retry times
+
         self.__write_motor_param(Motor, RID, data)
-        sleep(0.1)
-        self.recv_set_param_data()
-        if Motor.SlaveID in self.motors_map and RID in self.motors_map[Motor.SlaveID].temp_param_dict:
-            if abs(self.motors_map[Motor.SlaveID].temp_param_dict[RID] - data) < 0.1:
-                return True
-            else:
-                return False
-        else:
-            return False
+        for _ in range(max_retries):
+            self.recv_set_param_data()
+            if Motor.SlaveID in self.motors_map and RID in self.motors_map[Motor.SlaveID].temp_param_dict:
+                if abs(self.motors_map[Motor.SlaveID].temp_param_dict[RID] - data) < 0.1:
+                    return True
+                else:
+                    return False
+            sleep(retry_interval)
+        return False
 
     def read_motor_param(self, Motor, RID):
         """
@@ -425,16 +441,18 @@ class MotorControl:
         :param RID: DM_variable 电机参数
         :return: 电机参数的值
         """
+        max_retries = 20
+        retry_interval = 0.05  #retry times
         self.__read_RID_param(Motor, RID)
-        sleep(0.08)
-        self.recv_set_param_data()
-        if Motor.SlaveID in self.motors_map:
-            if RID in self.motors_map[Motor.SlaveID].temp_param_dict:
-                return self.motors_map[Motor.SlaveID].temp_param_dict[RID]
-            else:
-                return None
-        else:
-            return None
+        for _ in range(max_retries):
+            sleep(retry_interval)
+            self.recv_set_param_data()
+            if Motor.SlaveID in self.motors_map:
+                if RID in self.motors_map[Motor.SlaveID].temp_param_dict:
+                    return self.motors_map[Motor.SlaveID].temp_param_dict[RID]
+                else:
+                    return None
+        return None
 
     # -------------------------------------------------
     # Extract packets from the serial data
