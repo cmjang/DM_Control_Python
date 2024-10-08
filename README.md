@@ -159,7 +159,7 @@ MotorControl1.control_pos_force(Motor1, 10, 1000,100)
 
 ```python
 vel = Motor1.getVelocity()    #获得电机速度
-pos = Motor1.getPosition()    #获得电机
+pos = Motor1.getPosition()    #获得电机位置
 tau = Motor1.getTorque()      #获得电机此时输出力矩
 ```
 
