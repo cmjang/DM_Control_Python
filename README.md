@@ -1,6 +1,6 @@
 # 达妙Python库
 
-该库目前支持Linux和Windows（没有mac没法测试，感觉应该也可以）。示例代码为windows下测试
+该库支持MAC,Linux,Windows三个平台
 
 **欢迎加入QQ群：677900232 进行达妙电机技术交流。欢迎进入达妙店铺进行点击选购**[首页-达妙智能控制企业店-淘宝网 (taobao.com)](https://shop290016675.taobao.com/?spm=pc_detail.29232929/evo365560b447259.shop_block.dshopinfo.59f47dd6w4Z4dX)
 
