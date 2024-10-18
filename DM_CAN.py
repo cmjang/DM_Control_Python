@@ -226,7 +226,7 @@ class MotorControl:
         :param Motor: Motor object 电机对象
         """
         self.__control_cmd(Motor, np.uint8(0xFD))
-        sleep(0.01)
+        sleep(0.1)
         self.recv()  # receive the data from serial port
 
     def set_zero_position(self, Motor):
