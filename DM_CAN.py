@@ -71,7 +71,7 @@ class MotorControl:
     Limit_Param = [[12.5, 30, 10], [12.5, 50, 10], [12.5, 8, 28], [12.5, 10, 28],
                    # 6006           8006           8009            10010L         10010
                    [12.5, 45, 20], [12.5, 45, 40], [12.5, 45, 54], [12.5, 25, 200], [12.5, 20, 200],
-                   # H3510            DMG6215      DMH6220
+                   # H3510            DMG62150      DMH6220
                    [12.5 , 280 , 1],[12.5 , 45 , 10],[12.5 , 45 , 10]]
 
     def __init__(self, serial_device):
@@ -227,6 +227,7 @@ class MotorControl:
         """
         self.__control_cmd(Motor, np.uint8(0xFD))
         sleep(0.01)
+        self.recv()  # receive the data from serial port
 
     def set_zero_position(self, Motor):
         """
@@ -363,8 +364,8 @@ class MotorControl:
         :param Motor: Motor object 电机对象
         :param ControlMode: Control_Type 电机控制模式 example:MIT:Control_Type.MIT MIT模式
         """
-        max_retries = 10
-        retry_interval = 0.05  #retry times
+        max_retries = 20
+        retry_interval = 0.1  #retry times
         RID = 10
         self.__write_motor_param(Motor, RID, np.uint8(ControlMode))
         for _ in range(max_retries):
@@ -372,7 +373,7 @@ class MotorControl:
             self.recv_set_param_data()
             if Motor.SlaveID in self.motors_map:
                 if RID in self.motors_map[Motor.SlaveID].temp_param_dict:
-                    if self.motors_map[Motor.SlaveID].temp_param_dict[RID] == ControlMode:
+                    if abs(self.motors_map[Motor.SlaveID].temp_param_dict[RID] - ControlMode) < 0.1:
                         return True
                     else:
                         return False
@@ -452,8 +453,6 @@ class MotorControl:
             if Motor.SlaveID in self.motors_map:
                 if RID in self.motors_map[Motor.SlaveID].temp_param_dict:
                     return self.motors_map[Motor.SlaveID].temp_param_dict[RID]
-                else:
-                    return None
         return None
 
     # -------------------------------------------------
