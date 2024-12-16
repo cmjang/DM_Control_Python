@@ -243,3 +243,58 @@ if MotorControl1.change_motor_param(Motor1, DM_variable.KP_APR, 54):
 ```
 
 Note: Changes will be lost after power cycle unless saved to flash memory.
+
+### 7.Internal Register Parameter List **Note**: 
+
+**Note**:  
+
+- `RW`: Read and Write  
+- `RO`: Read Only   - Corresponding variable names can be directly used in `DM_variable`.
+
+| Register Address (Decimal) | Variable  | Description                 | R/W  | Range           | Data Type |
+| -------------------------- | --------- | --------------------------- | ---- | --------------- | --------- |
+| 0                          | UV_Value  | Under-voltage Value         | RW   | (10.0,3.4E38]   | float     |
+| 1                          | KT_Value  | Torque Coefficient          | RW   | [0.0,3.4E38]    | float     |
+| 2                          | OT_Value  | Over-temperature            | RW   | [80.0,200)      | float     |
+| 3                          | OC_Value  | Over-current Value          | RW   | (0.0,1.0)       | float     |
+| 4                          | ACC       | Acceleration                | RW   | (0.0,3.4E38)    | float     |
+| 5                          | DEC       | Deceleration                | RW   | [-3.4E38,0.0)   | float     |
+| 6                          | MAX_SPD   | Maximum Speed               | RW   | (0.0,3.4E38]    | float     |
+| 7                          | MST_ID    | Feedback ID                 | RW   | [0,0x7FF]       | uint32    |
+| 8                          | ESC_ID    | Receive ID                  | RW   | [0,0x7FF]       | uint32    |
+| 9                          | TIMEOUT   | Timeout Alarm Time          | RW   | [0,2^32-1]      | uint32    |
+| 10                         | CTRL_MODE | Control Mode                | RW   | [1,4]           | uint32    |
+| 11                         | Damp      | Motor Damping Coeff.        | RO   | /               | float     |
+| 12                         | Inertia   | Motor Inertia               | RO   | /               | float     |
+| 13                         | hw_ver    | Reserved                    | RO   | /               | uint32    |
+| 14                         | sw_ver    | Software Version            | RO   | /               | uint32    |
+| 15                         | SN        | Reserved                    | RO   | /               | uint32    |
+| 16                         | NPP       | Motor Pole Pairs            | RO   | /               | uint32    |
+| 17                         | Rs        | Motor Phase Resistance      | RO   | /               | float     |
+| 18                         | Ls        | Motor Phase Inductance      | RO   | /               | float     |
+| 19                         | Flux      | Motor Flux Value            | RO   | /               | float     |
+| 20                         | Gr        | Gear Reduction Ratio        | RO   | /               | float     |
+| 21                         | PMAX      | Position Mapping Max        | RW   | (0.0,3.4E38]    | float     |
+| 22                         | VMAX      | Speed Mapping Max           | RW   | (0.0,3.4E38]    | float     |
+| 23                         | TMAX      | Torque Mapping Max          | RW   | (0.0,3.4E38]    | float     |
+| 24                         | I_BW      | Current Loop Bandwidth      | RW   | [100.0,10000.0] | float     |
+| 25                         | KP_ASR    | Speed Loop Kp               | RW   | [0.0,3.4E38]    | float     |
+| 26                         | KI_ASR    | Speed Loop Ki               | RW   | [0.0,3.4E38]    | float     |
+| 27                         | KP_APR    | Position Loop Kp            | RW   | [0.0,3.4E38]    | float     |
+| 28                         | KI_APR    | Position Loop Ki            | RW   | [0.0,3.4E38]    | float     |
+| 29                         | OV_Value  | Over-voltage Value          | RW   | TBD             | float     |
+| 30                         | GREF      | Gear Torque Efficiency      | RW   | (0.0,1.0]       | float     |
+| 31                         | Deta      | Speed Loop Damping Coeff.   | RW   | [1.0,30.0]      | float     |
+| 32                         | V_BW      | Speed Loop Filter Bandwidth | RW   | (0.0,500.0)     | float     |
+| 33                         | IQ_c1     | Current Loop Gain           | RW   | [100.0,10000.0] | float     |
+| 34                         | VL_c1     | Speed Loop Gain             | RW   | (0.0,10000.0]   | float     |
+| 35                         | can_br    | CAN Baud Rate Code          | RW   | [0,4]           | uint32    |
+| 36                         | sub_ver   | Sub-version                 | RO   |                 | uint32    |
+| 50                         | u_off     | U Phase Offset              | RO   |                 | float     |
+| 51                         | v_off     | V Phase Offset              | RO   |                 | float     |
+| 52                         | k1        | Compensation Factor 1       | RO   |                 | float     |
+| 53                         | k2        | Compensation Factor 2       | RO   |                 | float     |
+| 54                         | m_off     | Angle Offset                | RO   |                 | float     |
+| 55                         | dir       | Direction                   | RO   |                 | float     |
+| 80                         | p_m       | Motor Position              | RO   |                 | float     |
+| 81                         | xout      | Output Shaft Position       | RO   |                 | float     |
